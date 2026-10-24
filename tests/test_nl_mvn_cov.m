@@ -17,6 +17,20 @@ end
 function teardownOnce(~)
 end
 
+function test_RBFKernel_mvn_cov(testCase)
+    T = (300:100:900).';
+    obj_fun = @(x) format4optim( ...
+        @(lnell) nl_mvn_cov( ...
+            4*ones(7,1), ...
+            4*ones(7,1), ...
+            RBFKernel(T,T,1,1,lnell) ...
+        ), x ...
+    );
+    if ~checkGradients(obj_fun, log(500), testCase.TestData.options, Display="on")
+        error("checkGradients Failed!")
+    end
+end
+
 function test_checkGradients_all_design_variables(testCase)
     N = numel(testCase.TestData.x);
     x0 = [testCase.TestData.x(:).', testCase.TestData.mu(:).', testCase.TestData.C(:).'];

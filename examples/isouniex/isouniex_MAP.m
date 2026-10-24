@@ -259,8 +259,8 @@ function psi = nl_posterior(lnkf, lnCf, lnhf, lnks_perp, lnks_par, lnCs, lnkappa
     psi_lnkappaT = nln(lnkappaT, mu_lnkappaT, sigma_lnkappaT);
 
     % Ψ(O)
-    psi_Os = cell(numel(Os1),1);
-    for i = 1:length(Os1)
+    psi_Os = cell(size(Os1));
+    for i = 1:numel(psi_Os)
         psi_Os{i} = nl_Bingham_unnormalized([Os1(i);Os2(i);Os3(i)], Qs, Okappas);
     end
 

@@ -51,6 +51,10 @@ classdef DesignVariable
                 otherwise
                     error("Unsupported indexing type.")
             end
+
+            if numel(S) > 1 && strcmp(S(1).type, '()')
+                out = subsref(out, S(2:end));
+            end
         end
 
         % Overloaded operators
@@ -71,6 +75,9 @@ classdef DesignVariable
         function out = size(obj)
             out = size(obj.value);
         end
+
+        % NOTE: cannot override numel() as this causes indexing errors.
+        %       use prod(size(obj)) or numel(obj.value) or size(obj.Jac, 1)
 
         function obj = vertcat(varargin)
             N = length(varargin);
