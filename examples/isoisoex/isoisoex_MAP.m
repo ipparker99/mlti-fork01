@@ -4,7 +4,7 @@ if nargin < 3 || isempty(options)
         SpecifyObjectiveGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxFunctionEvaluations=100, Algorithm="trust-region", MaxIterations=10);
+        MaxFunctionEvaluations=100, Algorithm="quasi-newton", MaxIterations=100);
 end
 data = load("isoisoex_data_stats.mat");
 data.kappa_mu = data.kappa_mu{trialNum};
@@ -131,8 +131,12 @@ x_max = calculate_x_max(x0(16:22), x0(23:29), data.f, data.Xprobe);
 [~, err] = checkGradients(@(x) obj_fun(x, x_max), x0, options, "Display","on");
 [x,fval,exitflag,output,grad] = fminunc(@(x) obj_fun(x, []), x0, options);
 
-x_max = calculate_x_max(x(16:22), x(23:29), data.f, data.Xprobe);
-hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
+if exitflag < 1
+    hessian = NaN;
+else
+    x_max = calculate_x_max(x(16:22), x(23:29), data.f, data.Xprobe);
+    hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
+end
 
 save(fullfile(checkpointDir, "isoisoex_MAP_results_" ...
     + sprintf('%03d', trialNum) ...
@@ -147,14 +151,14 @@ save(fullfile(resultsDir, "isoisoex_MAP_results_" ...
     "exitflag", "output", "grad", "hessian" ...
 );
 
-if min(eig(hessian)) < 0 || max(abs(grad)) > 1 || exitflag < 1
-    if options.Algorithm == "trust-region"
-        options.Algorithm = "quasi-newton";
-        options.MaxIterations=100;
-    else
-        options.Algorithm = "trust-region";
-        options.MaxIterations=10;
-    end
+if isnan(hessian) || min(eig(hessian)) < 0 || max(abs(grad)) > 1 || exitflag < 1
+    % if options.Algorithm == "trust-region"
+    %     options.Algorithm = "quasi-newton";
+    %     options.MaxIterations=100;
+    % else
+    %     options.Algorithm = "trust-region";
+    %     options.MaxIterations=10;
+    % end
     isoisoex_MAP(trialNum, x, options)
 end
 end

@@ -62,8 +62,11 @@ if nargin < 2 || isempty(x0)
                 Os1, Os2, Os3, data_ws, x_max ...
             ), x ...
         );
-        x_max = calculate_x_max(x0(4), x0(5), x0(6), data_ws.f, data_ws.Xprobe);
-        [~, err_ind{i}] = checkGradients(@(x) obj_fun(x, x_max), x0, options_unc, "Display","on");
+
+        % x_max = calculate_x_max(x0(4), x0(5), x0(6), data_ws.f, data_ws.Xprobe);
+        % [~, err_ind{i}] = checkGradients(@(x) obj_fun(x, x_max), x0, options_unc, "Display","on");
+        err_ind{i} = [];
+
         [ ...
             x_ind{i}, fval_ind{i}, exitflag_ind{i}, ...
             output_ind{i}, grad_ind{i}, hessian_ind{i} ...
@@ -91,8 +94,9 @@ if nargin < 2 || isempty(x0)
             data, x_max ...
         ), x ...
     );
-    x_max = calculate_x_max(lnks_perp, lnks_par, lnCs, data.f, data.Xprobe);
-    [~, err_lnell] = checkGradients(@(x) obj_fun(x, x_max), lnell, options_unc, "Display","on");
+    % x_max = calculate_x_max(lnks_perp, lnks_par, lnCs, data.f, data.Xprobe);
+    % [~, err_lnell] = checkGradients(@(x) obj_fun(x, x_max), lnell, options_unc, "Display","on");
+    err_lnell = [];
     
     [ ...
         lnell, fval_lnell, exitflag_lnell, ...
@@ -128,7 +132,7 @@ if nargin < 3 || isempty(options)
         SpecifyConstraintGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxFunctionEvaluations=50, Algorithm="interior-point");
+        MaxFunctionEvaluations=100, Algorithm="sqp");
 end
 
 obj_fun = @(x, x_max) format4optim( ...
@@ -155,38 +159,81 @@ nonlcon_check = @(x) format4optim( ...
     @(xi) hyper_sphere(xi(43:47), xi(48:52), xi(53:57)), ...
     x ...
 );
-x_max = calculate_x_max(x0(16:22), x0(23:29), x0(30:36), data.f, data.Xprobe);
-[~, err] = checkGradients(@(x) obj_fun(x, x_max), x0, options, "Display","on");
-[~, constraint_err] = checkGradients(nonlcon_check, x0, options, "Display","on");
+% x_max = calculate_x_max(x0(16:22), x0(23:29), x0(30:36), data.f, data.Xprobe);
+% [~, err] = checkGradients(@(x) obj_fun(x, x_max), x0, options, "Display","on");
+% [~, constraint_err] = checkGradients(nonlcon_check, x0, options, "Display","on");
+err = [];
+constraint_err = [];
+
 [x,fval,exitflag,output,lambda,grad] = fmincon( ...
     @(x) obj_fun(x, []), x0, [], [], [], [], [], [], nonlcon, options);
 
-x_max = calculate_x_max(x(16:22), x(23:29), x(30:36), data.f, data.Xprobe);
-hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
+if exitflag < 1
+    gradM = NaN;
+    B = NaN;
+    hessM = NaN;
+else
+    % remove saves once code is verified
+    save(fullfile(checkpointDir, "isouniex_MAP_results_" ...
+        + sprintf('%03d', trialNum) ...
+        + "_" ...
+        + string(datetime("now", Format="uuuuMMdd'T'HHmmss")) ...
+        + ".mat"), "x0", "x", "err", "fval", ...
+        "exitflag", "output", "lambda", "grad", "constraint_err" ...
+    );
+    save(fullfile(resultsDir, "isouniex_MAP_results_" ...
+        + sprintf('%03d', trialNum) ...
+        + ".mat"), "x0", "x", "err", "fval", ...
+        "exitflag", "output", "lambda", "grad", "constraint_err" ...
+    );
+    % normalize x
+    for i = 0:4
+        x([43+i,48+i,53+i]) = x([43+i,48+i,53+i])/norm(x([43+i,48+i,53+i]));
+    end
+
+    x_max = calculate_x_max(x(16:22), x(23:29), x(30:36), data.f, data.Xprobe);
+    [fval, grad] = obj_fun(x, x_max);
+    hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
+
+    [~, Jc] = nonlcon_check(x);
+    lam = (Jc*Jc') \ Jc * grad(:);
+    B = blkdiag(eye(42), zeros(15,10));
+    Hc = cell(5,1);
+    for i = 0:4
+       B([43+i,48+i,53+i], [43+2*i, 44+2*i]) = null(full(Jc(i+1, [43+i,48+i,53+i])));
+       Hc{i+1} = zeros(57,57);
+       Hc{i+1}([43+i,48+i,53+i],[43+i,48+i,53+i]) = 2*lam(i+1);
+    end
+
+    assert(max(abs(Jc*B), [], "all") < 1e-8);
+    assert(max(abs(B'*B-eye(52)), [], "all") < 1e-8);
+    assert(max(abs(lam+lambda)) < 1e-8);
+
+    gradM = B'*grad;
+    hessM = B'*(hessian-sum(Hc{:}))*B;
+end
 
 save(fullfile(checkpointDir, "isouniex_MAP_results_" ...
     + sprintf('%03d', trialNum) ...
     + "_" ...
     + string(datetime("now", Format="uuuuMMdd'T'HHmmss")) ...
     + ".mat"), "x0", "x", "err", "fval", ...
-    "exitflag", "output", "lambda", "grad", "hessian", "constraint_err" ...
+    "exitflag", "output", "lambda", "gradM", "hessM", "B", "constraint_err" ...
 );
 save(fullfile(resultsDir, "isouniex_MAP_results_" ...
     + sprintf('%03d', trialNum) ...
     + ".mat"), "x0", "x", "err", "fval", ...
-    "exitflag", "output", "lambda", "grad", "hessian", "constraint_err" ...
+    "exitflag", "output", "lambda", "gradM", "hessM", "B", "constraint_err" ...
 );
 
-%% TODO add in HessM and gradM
-
-if exitflag < 1
-    if options.Algorithm == "interior-point"
-        options.Algorithm = "sqp";
-        options.MaxFunctionEvaluations=100;
-    else
-        options.Algorithm = "interior-point";
-        options.MaxFunctionEvaluations=50;
-    end
+if isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1
+    % if options.Algorithm == "interior-point"
+    %     options.Algorithm = "sqp";
+    %     options.MaxFunctionEvaluations=100;
+    % else
+    %     options.Algorithm = "interior-point";
+    %     options.MaxFunctionEvaluations=50;
+    % end
     isouniex_MAP(trialNum, x, options)
 end
 end
