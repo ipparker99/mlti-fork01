@@ -151,7 +151,7 @@ save(fullfile(resultsDir, "isoisoex_MAP_results_" ...
     "exitflag", "output", "grad", "hessian" ...
 );
 
-if isnan(hessian) || min(eig(hessian)) < 0 || max(abs(grad)) > 1 || exitflag < 1
+if ~isequal(x, x0) && (isnan(hessian) || min(eig(hessian)) < 0 || max(abs(grad)) > 1 || exitflag < 1)
     % if options.Algorithm == "trust-region"
     %     options.Algorithm = "quasi-newton";
     %     options.MaxIterations=100;

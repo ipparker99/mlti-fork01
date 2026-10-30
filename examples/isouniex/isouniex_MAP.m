@@ -226,7 +226,7 @@ save(fullfile(resultsDir, "isouniex_MAP_results_" ...
     "exitflag", "output", "lambda", "gradM", "hessM", "B", "constraint_err" ...
 );
 
-if isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1
+if ~isequal(x, x0) && (isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1)
     % if options.Algorithm == "interior-point"
     %     options.Algorithm = "sqp";
     %     options.MaxFunctionEvaluations=100;
