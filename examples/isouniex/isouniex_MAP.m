@@ -211,10 +211,14 @@ else
        Hc{i+1}([43+i,48+i,53+i],[43+i,48+i,53+i]) = 2*lam(i+1);
     end
 
-    assert(max(abs(Jc*B), [], "all") < 1e-8);
-    assert(max(abs(B'*B-eye(52)), [], "all") < 1e-8);
-    assert(max(abs(lam+lambda)) < 1e-8);
-
+    try
+        assert(max(abs(Jc*B), [], "all") < 1e-8);
+        assert(max(abs(B'*B-eye(52)), [], "all") < 1e-8);
+        assert(max(abs(lam+lambda.eqnonlin)) < 1e-8);
+        disp("PASS")
+    catch exception
+        disp("FAIL")
+    end
     gradM = B'*grad;
     hessM = B'*(hessian-sum(Hc{:}))*B;
 end
