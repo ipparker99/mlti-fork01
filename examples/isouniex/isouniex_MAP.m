@@ -40,7 +40,7 @@ if nargin < 2 || isempty(x0)
     Os3 = sin(Os_theta) .* sin(Os_phi);
     lnCs = normrnd(consts.mu_lnCs, consts.sigma_lnCs, 7, 1);
     lnkappaT = normrnd(consts.mu_lnkappaT, consts.sigma_lnkappaT, 1, 1);
-    lnell = normrnd(consts.mu_lnell, consts.sigma_lnell, 5, 1);
+    lnell = zeros(5, 1);
     
     %% WARM START
     err_ind = cell(N, 1);
@@ -132,7 +132,8 @@ if nargin < 3 || isempty(options)
         SpecifyConstraintGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxFunctionEvaluations=2500, Algorithm="sqp");
+        MaxFunctionEvaluations=1000, Algorithm="sqp",...
+        EnableFeasibilityMode=true, SubproblemAlgorithm="cg");
 end
 
 obj_fun = @(x, x_max) format4optim( ...
@@ -164,6 +165,11 @@ nonlcon_check = @(x) format4optim( ...
 % [~, constraint_err] = checkGradients(nonlcon_check, x0, options, "Display","on");
 err = [];
 constraint_err = [];
+
+% normalize x0
+for i = 0:4
+    x0([43+i,48+i,53+i]) = x0([43+i,48+i,53+i])/norm(x0([43+i,48+i,53+i]));
+end
 
 [x,fval,exitflag,output,lambda,grad] = fmincon( ...
     @(x) obj_fun(x, []), x0, [], [], [], [], [], [], nonlcon, options);

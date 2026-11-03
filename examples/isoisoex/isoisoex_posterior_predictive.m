@@ -11,7 +11,7 @@ Nsamp = 1000;
 T = (300:100:900)';
 Ts = (300:10:900)';
 
-load results\isoisoex_MAP_results_100.mat
+load results\isoisoex_MAP_results_003.mat
 true_params = load("true_params.mat");
 
 indx = [1:14,16:29,31:34];
