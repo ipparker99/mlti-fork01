@@ -10,6 +10,8 @@ data = load("isoisoex_data_stats.mat");
 data.kappa_mu = data.kappa_mu{trialNum};
 data.mu = data.mu{trialNum};
 
+N = length(data.T);
+
 checkpointDir = "checkpoints";
 if ~exist(checkpointDir, 'dir')
     mkdir(checkpointDir);
@@ -24,16 +26,15 @@ if nargin < 2 || isempty(x0)
     %% LOAD DATA
     data_ws.f = data.f;
     data_ws.Xprobe = data.Xprobe;
-    N = length(data.T);
     
     %% Initial Guess: x0 - Sample from Prior
     rng("shuffle");
     consts = load("isoisoex_constants.mat");
-    lnkf = normrnd(consts.mu_lnkf, consts.sigma_lnkf, 7, 1);
-    lnCf = normrnd(consts.mu_lnCf, consts.sigma_lnCf, 7, 1);
-    lnhf = normrnd(consts.mu_lnhf, consts.sigma_lnhf, 1, 1);
-    lnks = normrnd(consts.mu_lnks, consts.sigma_lnks, 7, 1);
-    lnCs = normrnd(consts.mu_lnCs, consts.sigma_lnCs, 7, 1);
+    lnkf = normrnd(consts.mu_lnkf, consts.sigma_lnkf, N, 1);
+    lnCf = normrnd(consts.mu_lnCf, consts.sigma_lnCf, N, 1);
+    lnhf = normrnd(consts.mu_lnhf, consts.sigma_lnhf, N, 1);
+    lnks = normrnd(consts.mu_lnks, consts.sigma_lnks, N, 1);
+    lnCs = normrnd(consts.mu_lnCs, consts.sigma_lnCs, N, 1);
     lnkappaT = normrnd(consts.mu_lnkappaT, consts.sigma_lnkappaT, 1, 1);
     lnell = normrnd(consts.mu_lnell, consts.sigma_lnell, 4, 1);
     
@@ -116,25 +117,25 @@ end
 
 obj_fun = @(x, x_max) format4optim( ...
     @(xi) nl_posterior( ...
-        xi(1:7), ...
-        xi(8:14), ...
-        xi(15), ...
-        xi(16:22), ...
-        xi(23:29), ...
-        xi(30), ...
-        xi(31:34), ...
+        xi(1:N), ...
+        xi(N+1:2*N), ...
+        xi(2*N+1), ...
+        xi(2*N+2:3*N+1), ...
+        xi(3*N+2:4*N+1), ...
+        xi(4*N+2), ...
+        xi(4*N+3:4*N+6), ...
         data, x_max ...
     ), x ...
 );
 
-x_max = calculate_x_max(x0(16:22), x0(23:29), data.f, data.Xprobe);
+x_max = calculate_x_max(x0(2*N+2:3*N+1), x0(3*N+2:4*N+1), data.f, data.Xprobe);
 [~, err] = checkGradients(@(x) obj_fun(x, x_max), x0, options, "Display","on");
 [x,fval,exitflag,output,grad] = fminunc(@(x) obj_fun(x, []), x0, options);
 
 if exitflag < 1
     hessian = NaN;
 else
-    x_max = calculate_x_max(x(16:22), x(23:29), data.f, data.Xprobe);
+    x_max = calculate_x_max(x(2*N+2:3*N+1), x(3*N+2:4*N+1), data.f, data.Xprobe);
     hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
 end
 
