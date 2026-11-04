@@ -40,7 +40,7 @@ if nargin < 2 || isempty(x0)
     Os3 = sin(Os_theta) .* sin(Os_phi);
     lnCs = normrnd(consts.mu_lnCs, consts.sigma_lnCs, 7, 1);
     lnkappaT = normrnd(consts.mu_lnkappaT, consts.sigma_lnkappaT, 1, 1);
-    lnell = zeros(5, 1);
+    lnell = normrnd(consts.mu_lnell, consts.sigma_lnell, 5, 1);
     
     %% WARM START
     err_ind = cell(N, 1);
@@ -200,7 +200,18 @@ else
     x_max = calculate_x_max(x(16:22), x(23:29), x(30:36), data.f, data.Xprobe);
     [fval, grad] = obj_fun(x, x_max);
     hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
-
+    save(fullfile(checkpointDir, "isouniex_MAP_results_" ...
+        + sprintf('%03d', trialNum) ...
+        + "_" ...
+        + string(datetime("now", Format="uuuuMMdd'T'HHmmss")) ...
+        + ".mat"), "x0", "x", "err", "fval", ...
+        "exitflag", "output", "lambda", "grad", "constraint_err", "hessian" ...
+    );
+    save(fullfile(resultsDir, "isouniex_MAP_results_" ...
+        + sprintf('%03d', trialNum) ...
+        + ".mat"), "x0", "x", "err", "fval", ...
+        "exitflag", "output", "lambda", "grad", "constraint_err", "hessian" ...
+    );
     [~, Jc] = nonlcon_check(x);
     lam = (Jc*Jc') \ Jc * grad(:);
     B = blkdiag(eye(42), zeros(15,10));
@@ -219,7 +230,7 @@ else
     catch exception
         disp("FAIL")
     end
-    gradM = B'*grad;
+    gradM = B'*grad(:);
     hessM = B'*(hessian-sum(Hc{:}))*B;
 end
 
