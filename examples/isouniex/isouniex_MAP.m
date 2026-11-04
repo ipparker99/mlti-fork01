@@ -132,7 +132,7 @@ if nargin < 3 || isempty(options)
         SpecifyConstraintGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxFunctionEvaluations=1000, Algorithm="sqp");%,...
+        MaxFunctionEvaluations=500, Algorithm="interior-point");%,...
         % EnableFeasibilityMode=true, SubproblemAlgorithm="cg");
 end
 
@@ -248,13 +248,13 @@ save(fullfile(resultsDir, "isouniex_MAP_results_" ...
 );
 
 if ~isequal(x, x0) && (isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1)
-    % if options.Algorithm == "interior-point"
-    %     options.Algorithm = "sqp";
-    %     options.MaxFunctionEvaluations=100;
-    % else
-    %     options.Algorithm = "interior-point";
-    %     options.MaxFunctionEvaluations=50;
-    % end
+    if options.Algorithm == "interior-point"
+        options.Algorithm = "sqp";
+        options.MaxFunctionEvaluations=1000;
+    else
+        options.Algorithm = "interior-point";
+        options.MaxFunctionEvaluations=500;
+    end
     isouniex_MAP(trialNum, x, options)
 end
 end
