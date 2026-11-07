@@ -21,7 +21,7 @@ if nargin < 2 || isempty(x0)
         SpecifyObjectiveGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxTime=hours(11));
+        MaxFunctionEvaluations=500);
 
     %% LOAD DATA
     data_ws.f = data.f;
@@ -135,7 +135,7 @@ if nargin < 3 || isempty(options)
         SpecifyConstraintGradient=true, ...
         FiniteDifferenceType="central", ...
         StepTolerance=1e-10, FunctionTolerance=1e-10, ...
-        MaxTime=hours(11), Algorithm="sqp");%,...
+        MaxFunctionEvaluations=75, Algorithm="interior-point", InitTrustRegionRadius=1e-6);%,...
         % EnableFeasibilityMode=true, SubproblemAlgorithm="cg");
 end
 
@@ -247,9 +247,10 @@ save(fullfile(resultsDir, "isouniex_MAP_results_" ...
 if ~isequal(x, x0) && (isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1)
     if options.Algorithm == "interior-point"
         options.Algorithm = "sqp";
+        options.MaxFunctionEvaluations=500;
     else
         options.Algorithm = "interior-point";
-        options.InitTrustRegionRadius = 1e-6;
+        options.MaxFunctionEvaluations=75;
     end
     isouniex_MAP(trialNum, x, options)
 end
