@@ -1,4 +1,7 @@
 function isouniex_MAP(trialNum, x0, options)
+if x0(16) < x0(23)
+    x0(16:29) = x0([23:29,16:22]); % TODO Remove
+end
 data = load("isouniex_data_stats.mat");
 data.kappa_mu = data.kappa_mu{trialNum};
 data.mu = data.mu{trialNum};
@@ -246,7 +249,7 @@ if ~isequal(x, x0) && (isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 
         options.Algorithm = "sqp";
     else
         options.Algorithm = "interior-point";
-        options.InitTrustRegionRadius = 1e-4;
+        options.InitTrustRegionRadius = 1e-6;
     end
     isouniex_MAP(trialNum, x, options)
 end
