@@ -2,6 +2,7 @@ function isouniex_MAP(trialNum, x0, options)
 data = load("isouniex_data_stats.mat");
 data.kappa_mu = data.kappa_mu{trialNum};
 data.mu = data.mu{trialNum};
+N = length(data.T);
 
 checkpointDir = "checkpoints";
 if ~exist(checkpointDir, 'dir')
@@ -23,7 +24,6 @@ if nargin < 2 || isempty(x0)
     %% LOAD DATA
     data_ws.f = data.f;
     data_ws.Xprobe = data.Xprobe;
-    N = length(data.T);
     
     %% Initial Guess: x0 - Sample from Prior
     rng("shuffle");
