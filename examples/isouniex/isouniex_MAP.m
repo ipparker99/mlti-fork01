@@ -171,8 +171,18 @@ for i = 0:4
     x0([43+i,48+i,53+i]) = x0([43+i,48+i,53+i])/norm(x0([43+i,48+i,53+i]));
 end
 
+lb_lnk = -1.51; ub_lnk = 6.93;
+lb_lnC = -0.387; ub_lnC = 2.01;
+lb_lnhf = -2.02; ub_lnhf = -1.84;
+lb_lnkappaT = -4.26; ub_lnkappaT = 10.7;
+lb_lnell = 0; ub_lnell = 10;
+lb_O = -2; ub_O = 2;
+N1s = ones(N,1);
+lb = [lb_lnk*N1s; lb_lnC*N1s; lb_lnhf; lb_lnk*[N1s;N1s]; lb_lnC*N1s; lb_lnkappaT; lb_lnell*ones(5,1); lb_O*ones(15,1)];
+ub = [ub_lnk*N1s; ub_lnC*N1s; ub_lnhf; ub_lnk*[N1s;N1s]; ub_lnC*N1s; ub_lnkappaT; ub_lnell*ones(5,1); ub_O*ones(15,1)];
+
 [x,fval,exitflag,output,lambda] = fmincon( ...
-    @(x) obj_fun(x, []), x0, [], [], [], [], [], [], nonlcon, options);
+    @(x) obj_fun(x, []), x0, [], [], [], [], lb, ub, nonlcon, options);
 
 if exitflag < 1
     gradM = NaN;
