@@ -3,32 +3,38 @@ clear; clc; close all;
 
 %% Read in .mat files
 % Read in MAP results
-trialNum = "001";
-iso_results = load("ni_MAP_results_"+trialNum+".mat");
-
-% Read in constants
-constants = load("isoisoex_constants.mat");
-
-% Read in true parameters
+trialNum = "002";
+ni_results = load("ni_MAP_results_"+trialNum+".mat");
+constants = load("ni_constants.mat");
 true_params = load("true_params.mat");
-
-% Read in summary stats to get number of temperatures
 Tstruct = load("ni_data_stats.mat","T");
 T = Tstruct.T;
+
 num_T = length(T);
 
 %% Sample posterior
+% Indices
+film_kC_idx = 1:2*num_T;
+kf_idx = 1:num_T;
+Cf_idx = num_T+1:2*num_T;
+sub_kC_idx = 2*num_T+2:4*num_T+1;
+ks_idx = 2*num_T+2:3*num_T+1;
+Cs_idx = 3*num_T+2:4*num_T+1;
+lnell_idx = 4*num_T+3: 4*num_T+6;
+
 % Indices for schur_comp call
-indx = false(size(iso_results.hessian,1),1);
-indx([1:2*num_T, 2*num_T+2:4*num_T+1, 4*num_T+3: 4*num_T+6]) = true;
+indx = false(size(ni_results.hessian,1),1);
+
+% Include all parameters except film and substrate thicknesses 
+indx([film_kC_idx, sub_kC_idx, lnell_idx]) = true; 
 
 % Call schur_comp, compute Sp
-H_marg = schur_comp(iso_results.hessian, indx);
+H_marg = schur_comp(ni_results.hessian, indx);
 Sp = inv(H_marg);
 Sp = 0.5*(Sp+Sp.');
 
 % mu, m0, sigma0
-mu = iso_results.x(indx);
+mu = ni_results.x(indx);
 mu0 = @(T) [constants.mu_lnkf, constants.mu_lnCf, constants.mu_lnks,...
     constants.mu_lnCs] .* ones(length(T),1);
 sigma0 = {...
@@ -45,32 +51,27 @@ xmax = T+10;
 N_samp = 10;
 
 % sample_posterior_predictive
-iso_samples = sample_posterior_predictive(T, Ts, mu0, sigma0, mu, Sp, N_samp);
-iso_samples = reshape(iso_samples, N_samp, [], 4);
+ni_samples = sample_posterior_predictive(T, Ts, mu0, sigma0, mu, Sp, N_samp);
+ni_samples = reshape(ni_samples, N_samp, [], 4);
 %% Mode and S
-% Indices
-film_kC_idx = 1:2*num_T;
-kf_idx = 1:num_T;
-Cf_idx = num_T+1:2*num_T;
-sub_kC_idx = 2*num_T+2:4*num_T+1;
-ks_idx = 2*num_T+2:3*num_T+1;
-Cs_idx = 3*num_T+2:4*num_T+1;
+
 
 % Indices for schur_comp call
-indx = false(size(iso_results.hessian,1),1);
+indx = false(size(ni_results.hessian,1),1);
 indx(film_kC_idx) = true;
 
 % schur_comp call, compute Sp
-Hp = schur_comp(iso_results.hessian, indx);
+Hp = schur_comp(ni_results.hessian, indx);
 Sp = inv(Hp);
 Sp = 0.5*(Sp+Sp.');
 Sp = Sp(kf_idx,kf_idx) + Sp(Cf_idx,Cf_idx) - 2*Sp(kf_idx,Cf_idx);
 
 % Get mode of S
-[mode,S] = get_mode_S(iso_results.x(kf_idx)-iso_results.x(Cf_idx), sqrt(diag(Sp)));
-%% Thermal conductivity and diffusivity inference plots
+[mode,S] = get_mode_S(ni_results.x(kf_idx)-ni_results.x(Cf_idx), sqrt(diag(Sp)));
+
+%% Thermal conductivity inference plot
 figure(1); clf
-tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
+% tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
 
 % Plot settings
 colors = colororder;
@@ -81,11 +82,10 @@ lw = 1.5;
 cs = 5; 
 ms = 10;
 
-% Thermal conductivity figure
-nexttile; hold on;
+hold on;
 
 % Plot samples
-plot(Ts, exp(iso_samples(:,:,1)-iso_samples(:,:,2)),...
+plot(Ts, exp(ni_samples(:,:,1)-ni_samples(:,:,2)),...
     "x",MarkerSize=ms, Color=color_samp);
 
 ni_k = 60.7; % W/m/K
@@ -96,30 +96,31 @@ errorbar(T, mode, mode-mode./S, mode.*S-mode,...
     LineWidth=lw, CapSize=cs, LineStyle="none", Marker='o',...
     MarkerSize=ms, MarkerFaceColor='w', Color=color_post);
 xlim([xmin,xmax])
-title("Gold-YSZ Experiment", Interpreter="latex")
-ylabel("Film Diffusivity [mm$^2$/s]", Interpreter="latex")
+title("Ni-graphite Experiment")
+ylabel("Film Diffusivity (mm^2/s)")
+fontsize(18,"points")
 
 % Indices for schur_comp call
-indx = false(size(iso_results.hessian,1),1);
+indx = false(size(ni_results.hessian,1),1);
 indx(sub_kC_idx) = true;
 
 % schur_comp call, compute Sp
-Hp = schur_comp(iso_results.hessian, indx);
+Hp = schur_comp(ni_results.hessian, indx);
 Sp = inv(Hp);
 Sp = 0.5*(Sp+Sp.');
 Sp = Sp(kf_idx,kf_idx) + Sp(Cf_idx, Cf_idx)...
     - 2*Sp(kf_idx,Cf_idx);
 
 % Get mode of S
-[mode,S] = get_mode_S(iso_results.x(ks_idx)...
-    -iso_results.x(Cs_idx), sqrt(diag(Sp)));
+[mode,S] = get_mode_S(ni_results.x(ks_idx)...
+    -ni_results.x(Cs_idx), sqrt(diag(Sp)));
 
 % Thermal diffusivity plot
 nexttile; hold on;
 
-Ts_values = ones(size(iso_samples(:,:,3))) * Ts;
+Ts_values = ones(size(ni_samples(:,:,3))) * Ts;
 
-plot_samp = plot(Ts_values, exp(iso_samples(:,:,3)-iso_samples(:,:,4)),...
+plot_samp = plot(Ts_values, exp(ni_samples(:,:,3)-ni_samples(:,:,4)),...
     "x",MarkerSize=ms, Color=color_samp,DisplayName="Laplace posterior predictive");
 
 ni_D = 14.9;   % thermal diffusivity (mm^2/s)
@@ -157,9 +158,9 @@ tiledlayout(1,2,'TileSpacing','compact', "Padding","tight");
 nexttile(1);
 
 % Indices for schur_comp call
-indx = false(size(iso_results.hessian,1),1);
+indx = false(size(ni_results.hessian,1),1);
 indx([film_kC_idx, sub_kC_idx]) = true;
-Sp = inv(schur_comp(iso_results.hessian,indx));
+Sp = inv(schur_comp(ni_results.hessian,indx));
 Sp = 0.5*(Sp+Sp.');
 imagesc(corrcov(Sp))
 clim([-1,1])
@@ -195,10 +196,10 @@ A = [eye(num_T),-eye(num_T),zeros(num_T,num_T),zeros(num_T,num_T);
     zeros(num_T,num_T), zeros(num_T,num_T), eye(num_T), eye(num_T)];
 S_lnD = A*Sp*A.';
 D = size(S_lnD,1);
-iso_corr = corrcov(S_lnD);
+ni_corr = corrcov(S_lnD);
 
 % Plot diffusivity correlations
-imagesc(iso_corr)
+imagesc(ni_corr)
 clim([-1,1])
 c = colorbar;
 ylabel(c, "Correlation Coefficient", Interpreter="latex", FontSize=11)
