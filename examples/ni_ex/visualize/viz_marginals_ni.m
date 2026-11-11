@@ -10,9 +10,8 @@ true_params = load("true_params.mat");
 Tstruct = load("ni_data_stats.mat","T");
 T = Tstruct.T;
 
-num_T = length(T);
+num_T = length(T); % number of temperatures
 
-%% Sample posterior
 % Indices
 film_kC_idx = 1:2*num_T;
 kf_idx = 1:num_T;
@@ -22,21 +21,25 @@ ks_idx = 2*num_T+2:3*num_T+1;
 Cs_idx = 3*num_T+2:4*num_T+1;
 lnell_idx = 4*num_T+3: 4*num_T+6;
 
-% Indices for schur_comp call
+% Marginalize out film and substrate thicknesses 
 indx = false(size(ni_results.hessian,1),1);
+indx([film_kC_idx, sub_kC_idx, lnell_idx]) = true; % indices to keep
 
-% Include all parameters except film and substrate thicknesses 
-indx([film_kC_idx, sub_kC_idx, lnell_idx]) = true; 
-
-% Call schur_comp, compute Sp
+% Obtain marginal hessian with Schur complement
 H_marg = schur_comp(ni_results.hessian, indx);
-Sp = inv(H_marg);
-Sp = 0.5*(Sp+Sp.');
 
-% mu, m0, sigma0
+% Obtain the covariance
+Sp = inv(H_marg); % invert hessian to obtain covariance
+Sp = 0.5*(Sp+Sp.'); % symmetrize against round-off
+
+% Mean of the distribution
 mu = ni_results.x(indx);
+
+% Prior mean of the distribution
 mu0 = @(T) [constants.mu_lnkf, constants.mu_lnCf, constants.mu_lnks,...
     constants.mu_lnCs] .* ones(length(T),1);
+
+% Prior standard deviation of the distribution
 sigma0 = {...
     @(T) constants.sigma_lnkf .* ones(length(T),1);...
     @(T) constants.sigma_lnCf .* ones(length(T),1);...
@@ -46,68 +49,61 @@ sigma0 = {...
 
 % Sample points for posterior samples
 Ts = T;
-xmin = T-10;
-xmax = T+10;
-N_samp = 10;
+N_samp = 500;
 
-% sample_posterior_predictive
+% sample posterior
 ni_samples = sample_posterior_predictive(T, Ts, mu0, sigma0, mu, Sp, N_samp);
 ni_samples = reshape(ni_samples, N_samp, [], 4);
+
+
 %% Mode and S
-
-
 % Indices for schur_comp call
 indx = false(size(ni_results.hessian,1),1);
 indx(film_kC_idx) = true;
 
-% schur_comp call, compute Sp
-Hp = schur_comp(ni_results.hessian, indx);
-Sp = inv(Hp);
-Sp = 0.5*(Sp+Sp.');
-Sp = Sp(kf_idx,kf_idx) + Sp(Cf_idx,Cf_idx) - 2*Sp(kf_idx,Cf_idx);
+% Marginalize out everything except kf and Cf
+Hp = schur_comp(ni_results.hessian, indx); % compute marginal hessian
+Sp = inv(Hp); % invert hessian to obtain covariance
+Sp = 0.5*(Sp+Sp.'); % symmetrize round-off error
 
-% Get mode of S
-[mode,S] = get_mode_S(ni_results.x(kf_idx)-ni_results.x(Cf_idx), sqrt(diag(Sp)));
+% Covariance of the diffusivity
+Sp_Df = Sp(kf_idx,kf_idx) + Sp(Cf_idx,Cf_idx) - 2*Sp(kf_idx,Cf_idx);
 
-%% Thermal conductivity inference plot
+% lnDf = ni_results.x(kf_idx) - ni_results.x(Cf_idx);
+
+% Get mode and covariance
+% [mode,S] = get_mode_S(lnDf, sqrt(diag(Sp_Df)));
+
+
+%% Film diffusivity inference plot
 figure(1); clf
-% tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
-
-% Plot settings
-colors = colororder;
-color_true = colors(2,:);
-color_post = colors(1,:);
-color_samp = [0.5,0.5,0.5];
-lw = 1.5; 
-cs = 5; 
-ms = 10;
-
 hold on;
+ni_D = 14.9;   % thermal diffusivity (mm^2/s)
+graphite_D = 15.1; % thermal diffusivity (mm^2/s)
+
+lnDf_samples = ni_samples(:,:,1)-ni_samples(:,:,2);
+Df_samples = exp(lnDf_samples);
 
 % Plot samples
-plot(Ts, exp(ni_samples(:,:,1)-ni_samples(:,:,2)),...
-    "x",MarkerSize=ms, Color=color_samp);
-
-ni_k = 60.7; % W/m/K
-plot(Ts,ni_k,"o",MarkerSize=ms,color=color_true,LineWidth=lw)
-
-% Plot mode + 95% HDI
-errorbar(T, mode, mode-mode./S, mode.*S-mode,...
-    LineWidth=lw, CapSize=cs, LineStyle="none", Marker='o',...
-    MarkerSize=ms, MarkerFaceColor='w', Color=color_post);
-xlim([xmin,xmax])
-title("Ni-graphite Experiment")
-ylabel("Film Diffusivity (mm^2/s)")
+histogram(exp(lnDf_samples),DisplayName="Posterior samples");
+xline(ni_D,Color="r",LineWidth=2,DisplayName="True value")
+legend
+title("Ni-graphite synthetic data")
+xlabel("Graphite (film) Diffusivity (mm^2/s)")
 fontsize(18,"points")
 
-% Indices for schur_comp call
+
+%%
+% Indicies for substrate k and C
 indx = false(size(ni_results.hessian,1),1);
 indx(sub_kC_idx) = true;
 
-% schur_comp call, compute Sp
+% Marginalize out everything except ks and Cs
 Hp = schur_comp(ni_results.hessian, indx);
 Sp = inv(Hp);
 Sp = 0.5*(Sp+Sp.');
+
+% Covariance of the diffusivity
 Sp = Sp(kf_idx,kf_idx) + Sp(Cf_idx, Cf_idx)...
     - 2*Sp(kf_idx,Cf_idx);
 
@@ -115,29 +111,17 @@ Sp = Sp(kf_idx,kf_idx) + Sp(Cf_idx, Cf_idx)...
 [mode,S] = get_mode_S(ni_results.x(ks_idx)...
     -ni_results.x(Cs_idx), sqrt(diag(Sp)));
 
-% Thermal diffusivity plot
-nexttile; hold on;
-
 Ts_values = ones(size(ni_samples(:,:,3))) * Ts;
 
-plot_samp = plot(Ts_values, exp(ni_samples(:,:,3)-ni_samples(:,:,4)),...
-    "x",MarkerSize=ms, Color=color_samp,DisplayName="Laplace posterior predictive");
-
-ni_D = 14.9;   % thermal diffusivity (mm^2/s)
-
-
-plot(Ts,ni_D,'o', Color=color_true, LineWidth=lw, MarkerSize=ms, DisplayName="Reference value");
-
-errorbar(T, mode, mode-mode./S, mode.*S-mode, LineWidth=lw,...
-    CapSize=cs, LineStyle="none", Marker='o', MarkerSize=ms,...
-    MarkerFaceColor='w', Color=color_post, DisplayName="Posterior Mode and 95% HDI");
-
-xlim([xmin,xmax])
-xlabel("Temperature [K]", Interpreter="latex")
-ylabel("Substrate Diffusivity [mm$^2$/s]", Interpreter="latex")
-
+figure(2); clf
+lnDs_samples = ni_samples(:,:,3) - ni_samples(:,:,4);
+Ds_samples = exp(lnDs_samples);
+plot_samp = histogram(Ds_samples, DisplayName="Posterior samples");
+xline(ni_D,Color="r",LineWidth=2, DisplayName="True value")
 legend
-
+title("Ni-graphite synthetic data")
+xlabel("Nickel (substrate) Diffusivity (mm^2/s)")
+fontsize(18,"points")
 %% Correlation Matrices
 
 % Plot settings
@@ -152,6 +136,7 @@ fig.Units = 'inch';
 fig.Position = [8 1 7 6.45];
 
 % Correlation coefficient imagesc
+figure(3)
 tiledlayout(1,2,'TileSpacing','compact', "Padding","tight");
 
 % k and C correlations

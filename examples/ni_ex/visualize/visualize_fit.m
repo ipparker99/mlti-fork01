@@ -1,9 +1,12 @@
 clear
-load("tiny_MAP_results_001.mat")
+load("ni_MAP_results_002.mat")
 consts = load("isoisoex_constants.mat");
 load("ni_data_stats.mat","f","Xprobe")
+ref_data = load("ni_lockin_ref_data.mat","X","Y","phase");
 
-f = 15;
+ref_data.interpolant = scatteredInterpolant(ref_data.X,ref_data.Y,ref_data.phase);
+ref_data.phase_interp = ref_data.interpolant(Xprobe(:,1)*1e-6,Xprobe(:,2)*1e-6);
+
 % forward_model()
 % 
 % obj_fun = @(x, x_max) format4optim( ...
@@ -41,6 +44,25 @@ T0tilde = ForwardModel("iso", "iso", true).solve( ...
         {lnks},  {},  lnCs, lnas, logitRs, [], ...
         lnRth, sx^2, sy^2, 0, P, f, x_max, Nx, Xprobe ...
     );
+
+phase = angle(T0tilde);
+phase = rad2deg(phase);
+
+%scatter3(Xprobe(:,1),Xprobe(:,2),phase(:,1,1,1))
+figure(1); clf
+diff = ref_data.phase_interp - phase(:,1,1,1);
+scatter3(Xprobe(:,1),Xprobe(:,2),diff)
+xlabel("X (um)")
+ylabel("Y (um)")
+zlabel("Phase (deg)")
+fontsize(18,"points")
+
+figure(2); clf; hold on
+plot(ref_data.phase_interp, phase(:,1,1,1),'.')
+plot([-80,0],[-80,0])
+xlabel("Reference phase")
+ylabel("Predicted phase")
+fontsize(18,"points")
 
 function x_max = calculate_x_max(lnks, lnCs, f, Xprobe)
     Ds = exp(get_val(lnks)-get_val(lnCs)); % mm^2/s
