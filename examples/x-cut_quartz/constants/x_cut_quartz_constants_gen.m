@@ -9,7 +9,7 @@ mu_lnCs = mu_lnCf; sigma_lnCs = sigma_lnCf;
 [mu_lnsigmaT, sigma_lnsigmaT] = mode_S_2_mu_sigma(deg2rad(1), 10, 0.95);
 mu_lnkappaT = -2*mu_lnsigmaT; sigma_lnkappaT = 2*sigma_lnsigmaT;
 Qs = eye(3);
-Okappas = [0, 1/deg2rad(10)^2];
+Okappas = [0, 1/deg2rad(1)^2];
 
 lnaf = log(72.4);
 lnas = log(1e-6); % TODO find a source
@@ -18,7 +18,7 @@ logitRs = -inf;
 P = 1000;
 lnRth = -inf;
 
-save("x-cut_quartz_constants.mat", ...
+save("examples/x-cut_quartz/constants/x-cut_quartz_constants.mat", ...
     "mu_lnkf", "mu_lnks_perp", "mu_lnks_par", "mu_lnCf", "mu_lnCs", "mu_lnhf", "mu_lnkappaT", ...
     "sigma_lnkf", "sigma_lnks_perp", "sigma_lnks_par", "sigma_lnCf", "sigma_lnCs", "sigma_lnhf", ...
     "sigma_lnkappaT", "Qs", "Okappas", ...
