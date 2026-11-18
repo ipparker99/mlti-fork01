@@ -1,14 +1,14 @@
-function T0hat_gen_not_aligned()
+function T0hat_laserhat_gen()
 syms Kf11 Kf12 Kf13 Kf22 Kf23 Kf33 lnCf lnaf logitRf lnhf
 syms Ks11 Ks12 Ks13 Ks22 Ks23 Ks33 lnCs lnas logitRs lnhs
-syms lnRth sxx syy sxy P f u v
+syms lnRth sx sy P f u v
 syms AA BB [6,1]
 syms LAMBDA [2,1]
 syms E [4,1]
 
 input_vars = [Kf11 Kf12 Kf13 Kf22 Kf23 Kf33 lnCf lnaf logitRf lnhf ...
               Ks11 Ks12 Ks13 Ks22 Ks23 Ks33 lnCs lnas logitRs lnhs ...
-              lnRth sxx syy sxy P f u v];
+              lnRth sx sy P f u v];
 
 Cf = exp(lnCf); Cs = exp(lnCs);
 af = exp(lnaf); as = exp(lnas);
@@ -31,9 +31,13 @@ C3 = C4([1:4,6]);
 sol3 = solve(M3*C3==0, E(1:3));
 Ep_infinite = matlabFunction(sol3.E1, Vars=[AA; BB; LAMBDA; lnRth]);
 Em_infinite = matlabFunction(sol3.E2, Vars=[AA; BB; LAMBDA; lnRth]);
-     
-phuv = exp(-2.*pi.^2.*(u.^2.*sxx + 2.*u.*v.*sxy + v.^2.*syy));
+           
 
+% Heat source goes here
+a = sx; % laser radius in x-direction
+b = sy; % laser radius in y-direction
+tau = sqrt((a*u).^2 + (b*v).^2);
+phat = a * b * besselj(1,2*pi*tau) / (2 * pi * tau);
 psi  = 0.25;
 
 I0f = P .* (1 - Rf);
@@ -54,9 +58,9 @@ emf = (1i .* lf - sqrt(gf .* Kf33 - lf.^2)) ./ -Kf33;
 eps = (1i .* ls + sqrt(gs .* Ks33 - ls.^2)) ./ -Ks33;
 ems = (1i .* ls - sqrt(gs .* Ks33 - ls.^2)) ./ -Ks33;
 
-Lf = phuv .* psi .* af .* I0f ...
+Lf = phat .* psi .* af .* I0f ...
     ./ (gf + 2i .* lf .* af - Kf33 .* af.^2);
-Ls = phuv .* psi .* as .* I0s ...
+Ls = phat .* psi .* as .* I0s ...
     ./ (gs + 2i .* ls .* as - Ks33 .* as.^2);
 
 AA_f_ep = 1i .* lf + Kf33 .* epf;
@@ -93,13 +97,13 @@ end
 matlabFunction(T0hat_finite, grad_T0hat_finite{:}, ...
     Vars=input_vars, ...
     Optimize=true, ...
-    File='T0hat_finite_auto_optimized_not_aligned', ...
+    File='T0hat_laserhat_finite_auto_optimized', ...
     Outputs=["T0hat", "grad_" + string(input_vars)], ...
-    Comments="Created by solve_system_symbolically()");
+    Comments="Created by T0hat_laserhat_gen()");
 matlabFunction(T0hat_infinite, grad_T0hat_infinite{:}, ...
     Vars=input_vars, ...
     Optimize=true, ...
-    File='T0hat_infinite_auto_optimized_not_aligned', ...
+    File='T0hat_laserhat_infinite_auto_optimized', ...
     Outputs=["T0hat", "grad_" + string(input_vars)], ...
-    Comments="Created by solve_system_symbolically()");
+    Comments="Created by T0hat_laserhat_gen()");
 end

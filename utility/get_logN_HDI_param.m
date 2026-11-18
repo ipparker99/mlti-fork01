@@ -18,22 +18,23 @@ if ~is_alpha
     v = alph;
     range = [eps,1];
     S = options.S;
-    sigma = options.sigma;
+    sigma_variable = options.sigma;
 elseif ~is_S
     syms S real positive
     v = S;
     range = [1,1e300];
     alph = options.alpha;
-    sigma = options.sigma;
+    sigma_variable = options.sigma;
 elseif ~is_sigma
-    syms sigma real positive
-    v = sigma;
+    % Error message suggested changing syms to sym
+    syms sigma_variable real positive
+    v = sigma_variable;
     range = [eps, 1e100];
     alph = options.alpha;
     S = options.S;
 else
     error("DEVELOPER ERROR: SHOULD NOT BE ABLE TO REACH THIS!")
 end
-equation = 2*alph == erf((log(S)-sigma^2)/(sigma*sqrt(2))) + erf((sigma^2+log(S))/(sigma*sqrt(2)));
+equation = 2*alph == erf((log(S)-sigma_variable^2)/(sigma_variable*sqrt(2))) + erf((sigma_variable^2+log(S))/(sigma_variable*sqrt(2)));
 out = vpasolve(equation, v, range);
 end

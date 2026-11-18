@@ -20,9 +20,9 @@ classdef ForwardModel
             obj.film_2tensor_handle = film_isotropy.toTensor;
             obj.sub_2tensor_handle = sub_isotropy.toTensor;
             if inf_sub_thickness
-                obj.T0hat_handle = @T0hat_infinite_not_aligned;
+                obj.T0hat_handle = @T0hat_laserhat_infinite;
             else
-                obj.T0hat_handle = @T0hat_finite_not_aligned;
+                obj.T0hat_handle = @T0hat_laserhat_finite;
             end
         end
 
@@ -109,7 +109,7 @@ classdef ForwardModel
                 [T0hat, T0hat_jac] = obj.T0hat_handle( ...
                     film_tensor{:}, lnCf, lnaf, logitRf, lnhf, ...
                     sub_tensor{:},  lnCs, lnas, logitRs, lnhs, ...
-                    lnRth, Sxx, Syy, Sxy, P, f, u, v ...
+                    lnRth, Sxx, Syy, P, f, u, v ...
                 );
             else
                 [N2, N1] = size(Jac1);
@@ -153,10 +153,22 @@ classdef ForwardModel
                 [T0hat, T0hat_jac] = obj.T0hat_handle(args{:});
                 T0hat_jac = T0hat_jac * Jac1;
             end
-
+            
             [Nx,Ny,N,n,Nf] = size(T0hat);
             T0hat_jac = reshape(full(T0hat_jac), Nx,Ny,N,n,Nf,[]);
             N1 = size(T0hat_jac, 6);
+            
+            % Check for nans
+            if any(isnan(T0hat),"all")
+                % Count nans
+                num_nans = sum(isnan(T0hat),"all");
+                
+                % Display warning
+                warning("%d nan value(s) in T0hat, ignoring nans", num_nans)
+                
+                % remove nans
+                T0hat(isnan(T0hat)) = 0;
+            end
             T0tilde = ifftshift(ifft2(fftshift(T0hat)))./dx./dx;
             T0tilde_jac = ifftshift(ifft2(fftshift(T0hat_jac)))./dx./dx;
             Jac = reshape(T0tilde_jac, [], N1);
