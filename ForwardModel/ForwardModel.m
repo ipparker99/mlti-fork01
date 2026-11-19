@@ -20,9 +20,9 @@ classdef ForwardModel
             obj.film_2tensor_handle = film_isotropy.toTensor;
             obj.sub_2tensor_handle = sub_isotropy.toTensor;
             if inf_sub_thickness
-                obj.T0hat_handle = @T0hat_infinite_not_aligned;
+                obj.T0hat_handle = @unif_infinite;
             else
-                obj.T0hat_handle = @T0hat_finite_not_aligned;
+                obj.T0hat_handle = @unif_finite;
             end
         end
 
