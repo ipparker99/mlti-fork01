@@ -59,31 +59,76 @@ nonlcon_check = @(x) format4optim( ...
 x_max = calculate_x_max(x0(4), x0(5), x0(6), data.f, data.Xprobe);
 [~, err] = checkGradients(@(x) obj_fun(x, x_max), x0, options, "Display","on");
 [~, constraint_err] = checkGradients(nonlcon_check, x0, options, "Display","on");
-[x,fval,exitflag,output,lambda,grad] = fmincon( ...
+[x,fval,exitflag,output,lambda] = fmincon( ...
     @(x) obj_fun(x, []), x0, [], [], [], [], [], [], nonlcon, options);
-
-x_max = calculate_x_max(x(4), x(5), x(6), data.f, data.Xprobe);
-hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
 
 save(fullfile(checkpointDir, "x-cut_quartz_MAP_results_" ...
     + string(datetime("now", Format="uuuuMMdd'T'HHmmss")) ...
     + ".mat"), "x0", "x", "err", "fval", ...
-    "exitflag", "output", "lambda", "grad", "hessian", "constraint_err" ...
+    "exitflag", "output", "lambda", "constraint_err" ...
 );
 save(fullfile(resultsDir, "x-cut_quartz_MAP_results.mat"), ...
     "x0", "x", "err", "fval", ...
-    "exitflag", "output", "lambda", "grad", "hessian", "constraint_err" ...
+    "exitflag", "output", "lambda", "constraint_err" ...
 );
 
-%% TODO add in HessM and gradM
-
 if exitflag < 1
-    if options.Algorithm == "interior-point"
+    gradM = NaN;
+    B = NaN;
+    hessM = NaN;
+else
+    % normalize x
+    x(8:10) = x(8:10)/norm(x(8:10));
+
+    x_max = calculate_x_max(x0(4), x0(5), x0(6), data.f, data.Xprobe);
+    [fval, grad] = obj_fun(x, x_max);
+    
+    [~, Jc] = nonlcon_check(x);
+    lam = (Jc*Jc') \ Jc * grad(:);
+    B = blkdiag(eye(7), null(full(Jc(1, 8:10))));
+    Hc = zeros(10,10);
+    Hc(8:10,8:10) = 2*lam*eye(3);
+
+    try
+        assert(max(abs(Jc*B), [], "all") < 1e-8);
+        assert(max(abs(B'*B-eye(52)), [], "all") < 1e-8);
+        assert(max(abs(lam+lambda.eqnonlin)) < 1e-8);
+        disp("PASS")
+    catch exception
+        disp("FAIL")
+    end
+    gradM = B'*grad(:);
+
+    if max(abs(gradM)) > 1 && datetime('now') < datetime(2026, 11, 6, 8, 0, 0)
+        hessM = NaN;
+    else
+        hessian = central_diff_hessian(@(x) obj_fun(x, x_max), x, 1e-4);
+        hessM = B'*(hessian-Hc)*B;
+    end
+end
+
+save(fullfile(checkpointDir, "isouniex_MAP_results_" ...
+    + sprintf('%03d', trialNum) ...
+    + "_" ...
+    + string(datetime("now", Format="uuuuMMdd'T'HHmmss")) ...
+    + ".mat"), "x0", "x", "err", "fval", ...
+    "exitflag", "output", "lambda", "gradM", "hessM", "B", "constraint_err" ...
+);
+save(fullfile(resultsDir, "isouniex_MAP_results_" ...
+    + sprintf('%03d', trialNum) ...
+    + ".mat"), "x0", "x", "err", "fval", ...
+    "exitflag", "output", "lambda", "gradM", "hessM", "B", "constraint_err" ...
+);
+
+if ~isequal(x, x0) && (isnan(hessM) || min(eig(hessM)) < 0 || max(abs(gradM)) > 1 || exitflag < 1)
+    if exitflag < 1 || options.Algorithm == "interior-point"
         options.Algorithm = "sqp";
+        options.MaxFunctionEvaluations=500;
     else
         options.Algorithm = "interior-point";
+        options.MaxFunctionEvaluations=75;
     end
-    x_cut_quartz_MAP(x, options)
+    isouniex_MAP(trialNum, x, options)
 end
 end
 
@@ -168,7 +213,7 @@ function psi = nl_posterior(lnkf, lnCf, lnhf, lnks_perp, lnks_par, lnCs, lnkappa
         T0tilde = ForwardModel("iso", "uni", true).solve( ...
             {lnkf}, {}, lnCf, lnaf, logitRf, lnhf, ...
             {lnks_perp, lnks_par},  {Os1, Os2, Os3},  lnCs, lnas, logitRs, [], ...
-            lnRth, Sxx(i), Syy(i), Sxy, P, f, x_max, Nx, Xprobe(i,:) ...
+            lnRth, Sxx(i), Syy(i), Sxy(i), P, f, x_max, Nx, Xprobe(i,:) ...
         );
         psi_nll{i} = nll_phase(data.mu(i,:,:,:), phase(T0tilde), exp(lnkappaT), data.kappa_mu(i,:,:,:), true);
     end
